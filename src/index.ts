@@ -13,6 +13,7 @@ import { streamSSE } from "hono/streaming";
 import { serve } from "@hono/node-server";
 
 import { PORT, CORS_ORIGIN, LLM_TIMEOUT_MS, LLM_URL, LLM_MODEL, LLM_API_KEY, MAX_INPUT_LENGTH } from "./config.js";
+import { enrichTasks } from "./schemas.js";
 import { preprocessText } from "./parser/preprocessor.js";
 import { tryRuleBased } from "./parser/rule-parser.js";
 import { buildPrompt, calcNumPredict } from "./llm/prompt.js";
@@ -52,8 +53,9 @@ app.post("/parse", async (c) => {
   // Fast path: rule-based parser
   const ruleResult = tryRuleBased(processed, nowHint);
   if (ruleResult) {
-    cacheSet(cacheKey, ruleResult);
-    return c.json(ruleResult);
+    const enriched = enrichTasks(ruleResult);
+    cacheSet(cacheKey, enriched);
+    return c.json(enriched);
   }
 
   // LLM path
@@ -75,8 +77,9 @@ app.post("/parse", async (c) => {
 
     if (!result) return c.json({ error: "Invalid response from LLM", raw }, 502);
 
-    cacheSet(cacheKey, result);
-    return c.json(result);
+    const enriched = enrichTasks(result);
+    cacheSet(cacheKey, enriched);
+    return c.json(enriched);
   } catch (e: unknown) {
     const err = e instanceof Error ? e : new Error(String(e));
     const msg = err.name === "AbortError" ? "LLM timeout" : err.message;
@@ -118,7 +121,7 @@ app.post("/parse/stream", async (c) => {
     cacheSet(cacheKey, ruleResult);
     return streamSSE(c, async (stream) => {
       await stream.writeSSE({ event: "status", data: "rule-based" });
-      await stream.writeSSE({ event: "result", data: JSON.stringify(ruleResult) });
+      await stream.writeSSE({ event: "result", data: JSON.stringify(enrichTasks(ruleResult)) });
     });
   }
 
@@ -208,11 +211,12 @@ app.post("/parse/stream", async (c) => {
       await stream.writeSSE({ event: "status", data: "parsing" });
       const result = parseLLMOutput(raw);
       if (result) {
-        cacheSet(cacheKey, result);
+        const enriched = enrichTasks(result);
+        cacheSet(cacheKey, enriched);
         const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
         await stream.writeSSE({
           event: "result",
-          data: JSON.stringify({ ...result, _meta: { tokens: tokenCount, elapsed_s: elapsed, early_stop: earlyStop } }),
+          data: JSON.stringify({ ...enriched, _meta: { tokens: tokenCount, elapsed_s: elapsed, early_stop: earlyStop } }),
         });
       } else {
         await stream.writeSSE({ event: "error", data: "Invalid response from LLM" });

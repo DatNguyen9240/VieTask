@@ -10,7 +10,28 @@ export interface ParsedTask {
   need_clarification: boolean;
   clarifying_question: string | null;
   action: "notify" | "alarm" | "open_app" | "call";
+  action_label: string;
+  action_icon: string;
   app_name: string | null;
+}
+
+// ===== Action display info =====
+const ACTION_INFO: Record<string, { label: string; icon: string }> = {
+  notify:   { label: "Nhắc nhở", icon: "🔔" },
+  alarm:    { label: "Báo thức", icon: "⏰" },
+  open_app: { label: "Mở app",  icon: "📱" },
+  call:     { label: "Gọi điện", icon: "📞" },
+};
+
+/** Enrich tasks with action_label and action_icon */
+export function enrichTasks(result: { tasks: ParsedTask[] }): { tasks: ParsedTask[] } {
+  return {
+    tasks: result.tasks.map(t => ({
+      ...t,
+      action_label: ACTION_INFO[t.action]?.label ?? t.action,
+      action_icon: ACTION_INFO[t.action]?.icon ?? "🔔",
+    })),
+  };
 }
 
 // ===== Full JSON schema (used for LLM output validation) =====
