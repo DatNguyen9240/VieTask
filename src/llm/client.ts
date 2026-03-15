@@ -70,6 +70,7 @@ export function parseLLMOutput(raw: string): { tasks: ParsedTask[] } | null {
         clarifying_question: ct.q,
         action: ct.a,
         app_name: ct.p,
+        action_url: ct.u,
       })),
     };
   }
@@ -93,6 +94,7 @@ export function parseLLMOutput(raw: string): { tasks: ParsedTask[] } | null {
         clarifying_question: ct.q,
         action: ct.a,
         app_name: ct.p,
+        action_url: ct.u,
       }],
     };
   }

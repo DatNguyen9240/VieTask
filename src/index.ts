@@ -13,7 +13,7 @@ import { streamSSE } from "hono/streaming";
 import { serve } from "@hono/node-server";
 
 import { PORT, CORS_ORIGIN, LLM_TIMEOUT_MS, LLM_URL, LLM_MODEL, LLM_API_KEY, MAX_INPUT_LENGTH } from "./config.js";
-import { enrichTasks } from "./schemas.js";
+import { enrichTasks, type ParsedTask } from "./schemas.js";
 import { preprocessText } from "./parser/preprocessor.js";
 import { tryRuleBased } from "./parser/rule-parser.js";
 import { buildPrompt, calcNumPredict } from "./llm/prompt.js";
@@ -29,11 +29,66 @@ app.use("/*", cors({ origin: CORS_ORIGIN }));
 
 app.get("/health", (c) => c.json({ ok: true }));
 
+/**
+ * Deterministic shortcut resolution — scans task titles for user-defined shortcuts
+ * and replaces them with actual values. Handles any key→value pair.
+ * 
+ * Examples:
+ *   shortcuts = { "con trai": "0912345567", "dép lào": "zalo", "yêu từ bé": "youtube" }
+ *   "gọi con trai" → action_url = "tel:0912345567"
+ *   "mở dép lào"   → resolved as "mở zalo" → action_url from enrichTasks
+ *   "mở yêu từ bé" → resolved as "mở youtube"
+ */
+function resolveShortcuts(result: { tasks: ParsedTask[] }, shortcuts: Record<string, string>): void {
+  if (!shortcuts || Object.keys(shortcuts).length === 0) return;
+
+  const entries = Object.entries(shortcuts)
+    .map(([key, value]) => ({ key: key.toLowerCase(), value, original: key }))
+    .sort((a, b) => b.key.length - a.key.length); // longest first
+
+  for (const task of result.tasks) {
+    const titleLower = task.title.toLowerCase();
+
+    for (const { key, value } of entries) {
+      if (!titleLower.includes(key)) continue;
+
+      const valLower = value.toLowerCase().trim();
+      const isPhone = /^[\d\s\-\+\.]{7,}$/.test(value.trim());
+
+      if (isPhone) {
+        // Value is a phone number → set tel: or zalo deep link
+        const cleanPhone = value.replace(/[\s\-\.]/g, '');
+        if (/gọi/i.test(task.title)) {
+          task.action = 'call';
+          task.action_url = `tel:${cleanPhone}`;
+        } else if (/zalo|nhắn/i.test(task.title)) {
+          task.action = 'open_app';
+          task.app_name = 'zalo';
+          task.action_url = `zalo://conversation?phone=${cleanPhone}`;
+        } else {
+          task.action = 'call';
+          task.action_url = `tel:${cleanPhone}`;
+        }
+      } else {
+        // Value is an app/website name → resolve as open_app
+        task.action = 'open_app';
+        task.app_name = valLower;
+        task.action_url = valLower.startsWith('http')
+          ? value.trim()
+          : `https://www.${valLower.replace(/\s+/g, '')}.com`;
+      }
+
+      break; // first match only
+    }
+  }
+}
+
 app.post("/parse", async (c) => {
   const body = await c.req.json().catch(() => ({}));
   const text = String(body.text ?? "").trim();
   const nowLocal = String(body.nowLocal ?? "").trim();
   const tz = String(body.tz ?? "Asia/Ho_Chi_Minh");
+  const contacts: Record<string, string> = body.contacts && typeof body.contacts === 'object' ? body.contacts : {};
 
   if (!text) return c.json({ error: "Missing text" }, 400);
   if (text.length > MAX_INPUT_LENGTH) {
@@ -54,12 +109,13 @@ app.post("/parse", async (c) => {
   const ruleResult = tryRuleBased(processed, nowHint);
   if (ruleResult) {
     const enriched = enrichTasks(ruleResult);
+    resolveShortcuts(enriched, contacts);
     cacheSet(cacheKey, enriched);
     return c.json(enriched);
   }
 
   // LLM path
-  const prompt = buildPrompt(processed, nowHint, tz);
+  const prompt = buildPrompt(processed, nowHint, tz, contacts);
   const numPredict = calcNumPredict(text);
 
   try {
@@ -78,6 +134,7 @@ app.post("/parse", async (c) => {
     if (!result) return c.json({ error: "Invalid response from LLM", raw }, 502);
 
     const enriched = enrichTasks(result);
+    resolveShortcuts(enriched, contacts);
     cacheSet(cacheKey, enriched);
     return c.json(enriched);
   } catch (e: unknown) {
@@ -204,7 +261,7 @@ app.post("/parse/stream", async (c) => {
           if (earlyStop) break;
         }
       } finally {
-        reader.cancel().catch(() => {});
+        reader.cancel().catch(() => { });
       }
 
       // Final result

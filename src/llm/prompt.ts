@@ -8,9 +8,14 @@
  * The prompt ends with `{"tasks":[` to force the model to continue
  * generating the JSON array directly (prefix forcing technique).
  */
-export function buildPrompt(text: string, nowHint: string, tz: string): string {
+export function buildPrompt(text: string, nowHint: string, tz: string, contacts?: Record<string, string>): string {
+  // Build contacts context if available
+  const contactsSection = contacts && Object.keys(contacts).length > 0
+    ? `\nUser contacts (name→phone): ${JSON.stringify(contacts)}. When user mentions a contact name in call/zalo/message actions, use their phone number for deep links (e.g. zalo://conversation?phone=PHONE, tel:PHONE).`
+    : '';
+
   return `Extract schedule tasks from Vietnamese text. Output ONLY valid JSON, nothing else. No markdown fences.
-Now: ${nowHint} (${tz})
+Now: ${nowHint} (${tz})${contactsSection}
 Rules:
 - Each timed event = 1 task. "rồi/và X" at same time = new task. "trước đó N phút X" = new task at anchor-N min.
 - "nhắc trước N phút" = r=N on same task. "N phút sau khi ăn X khoảng T" = d=T+N min.
@@ -19,10 +24,12 @@ Rules:
 - buổi sáng=~09:00, buổi trưa=12:00, buổi chiều=~14:00, buổi tối=~20:00 with q asking exact time.
 - Remove tôi/mình from title. báo thức=alarm. mở/bật APP=open_app,p=APP. gọi=call. else=notify.
 - t = EXACT Vietnamese task phrase from input (e.g. "gọi khách hàng", "uống thuốc"). NEVER use English words like "alarm","call","notify" as t.
-JSON schema per task: {"t":"title","d":"YYYY-MM-DD HH:MM","a":"notify","p":null,"r":0,"q":null}
-Examples: "nhắc gọi cho vợ 5 chiều"→{"t":"gọi cho vợ","d":"2026-03-06 17:00","a":"call","p":null,"r":0,"q":null}
-          "báo thức 6 sáng"→{"t":"báo thức","d":"2026-03-06 06:00","a":"alarm","p":null,"r":0,"q":null}
-          "gọi khách hàng buổi chiều"→{"t":"gọi khách hàng","d":"2026-03-06 14:00","a":"call","p":null,"r":0,"q":"Bạn muốn gọi lúc mấy giờ chiều?"}
+- u = deep web URL for open_app action. Use search/content URLs when user specifies content (e.g. YouTube search, specific page). For zalo with known contact, use zalo://conversation?phone=PHONE. null for non open_app actions.
+JSON schema per task: {"t":"title","d":"YYYY-MM-DD HH:MM","a":"notify","p":null,"u":null,"r":0,"q":null}
+Examples: "nhắc gọi cho vợ 5 chiều"→{"t":"gọi cho vợ","d":"2026-03-06 17:00","a":"call","p":null,"u":null,"r":0,"q":null}
+          "báo thức 6 sáng"→{"t":"báo thức","d":"2026-03-06 06:00","a":"alarm","p":null,"u":null,"r":0,"q":null}
+          "7 giờ tối mở youtube nghe nhạc sơn tùng"→{"t":"mở youtube nghe nhạc sơn tùng","d":"2026-03-06 19:00","a":"open_app","p":"youtube","u":"https://www.youtube.com/results?search_query=nh%E1%BA%A1c+s%C6%A1n+t%C3%B9ng","r":0,"q":null}
+          "8 giờ mở zalo nhắn con trai"→{"t":"mở zalo nhắn con trai","d":"2026-03-06 20:00","a":"open_app","p":"zalo","u":"zalo://conversation?phone=0901234567","r":0,"q":null}
 Vietnamese text: ${JSON.stringify(text)}
 {"tasks":[`;
 }

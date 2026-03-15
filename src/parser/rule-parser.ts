@@ -37,7 +37,7 @@ export function detectAction(title: string): { action: ParsedTask["action"]; app
   if (ALARM_RX.test(title)) return { action: "alarm", app_name: null };
   if (CALL_RX.test(title)) return { action: "call", app_name: null };
   if (OPEN_TRIGGER_RX.test(title)) {
-    const m = title.match(/(?:mở|bật)\s+(?:app\s+|[uư]ng dụng\s+)?(.+)/i);
+    const m = title.match(/(?:mở|bật)\s+(?:app\s+|web\s+|trang\s+web\s+|trang\s+|[uư]ng dụng\s+)?(.+)/i);
     return { action: "open_app", app_name: m ? m[1]!.replace(/[,;]\s*$/, "").trim() : null };
   }
   return { action: "notify", app_name: null };
@@ -203,7 +203,7 @@ export function tryRuleBased(text: string, nowHint: string): { tasks: ParsedTask
 
   // --- Match all time expressions in the text ---
   // Groups: (1)hour (2)minutes (3)rưỡi-after-giờ (4)rưỡi-standalone (5)period
-  const timeRx = /(\d{1,2})\s*(?:giờ(?:\s*(\d{1,2})\s*phút|\s*(rưỡi))?|(rưỡi))(?:\s*(sáng|trưa|chiều|tối))?/gi;
+  const timeRx = /(\d{1,2})\s*(?:giờ(?:\s*(\d{1,2})(?:\s*phút)?|\s*(rưỡi))?|(rưỡi))(?:\s*(sáng|trưa|chiều|tối))?/gi;
   const matches = [...workText.matchAll(timeRx)];
 
   if (matches.length === 0) {
@@ -252,13 +252,27 @@ export function tryRuleBased(text: string, nowHint: string): { tasks: ParsedTask
       if (period === "sáng") { if (hour === 12) hour = 0; }
       else if (period === "trưa") { hour = 12; }
       else { if (hour < 12) hour += 12; }
-    } else if (hour < 13 || hour > 23) {
-      // 6-11 → unambiguously morning; 4-5 → morning only in alarm context
-      const impliesMorning = (hour >= 6 && hour <= 11) || (hour >= 4 && hour < 6 && ALARM_RX.test(segment));
-      if (!impliesMorning) {
+    } else if (hour < 13) {
+      // No period word → smart AM/PM resolution
+      const amPast = hour < nowH || (hour === nowH && minute <= nowMin);
+      const pmHour = hour + 12;
+      const pmFuture = pmHour < 24 && (pmHour > nowH || (pmHour === nowH && minute > nowMin));
+
+      if (amPast && pmFuture) {
+        // AM already passed, PM is in the future → clearly meant PM
+        // e.g., "6 giờ 50" at 18:49 → 18:50
+        hour = pmHour;
+      } else if (!amPast) {
+        // AM is still in the future → keep as morning
+        // e.g., "8 giờ" at 07:30 → 08:00
+      } else if (hour >= 4 && hour < 6 && ALARM_RX.test(segment)) {
+        // 4-5 AM alarm context → keep as morning (shifted to tomorrow by date logic)
+      } else if (!(hour >= 6 && hour <= 11)) {
+        // 1-3 → ambiguous, ask user
         need_clarification = true;
         clarifying_question = `Bạn muốn ${hour} giờ sáng hay ${hour} giờ chiều/tối?`;
       }
+      // hours 6-11 where AM is past and PM is also past → will be shifted to tomorrow by date logic
     }
 
     // ₁ marker from preprocessor → ask exact time

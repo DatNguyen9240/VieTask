@@ -10,8 +10,9 @@ export interface ParsedTask {
   need_clarification: boolean;
   clarifying_question: string | null;
   action: "notify" | "alarm" | "open_app" | "call";
-  action_label: string;
-  action_icon: string;
+  action_label?: string;
+  action_icon?: string;
+  action_url?: string | null;
   app_name: string | null;
 }
 
@@ -23,13 +24,17 @@ const ACTION_INFO: Record<string, { label: string; icon: string }> = {
   call:     { label: "Gọi điện", icon: "📞" },
 };
 
-/** Enrich tasks with action_label and action_icon */
+/** Enrich tasks with action_label, action_icon, and action_url fallback */
 export function enrichTasks(result: { tasks: ParsedTask[] }): { tasks: ParsedTask[] } {
   return {
     tasks: result.tasks.map(t => ({
       ...t,
       action_label: ACTION_INFO[t.action]?.label ?? t.action,
       action_icon: ACTION_INFO[t.action]?.icon ?? "🔔",
+      // If LLM didn't return a URL, generate fallback for open_app
+      action_url: t.action_url ?? (t.action === 'open_app' && t.app_name
+        ? `https://www.${t.app_name.toLowerCase().replace(/\s+/g, '')}.com`
+        : null),
     })),
   };
 }
@@ -57,6 +62,7 @@ export const CompactTaskSchema = z.object({
   d: z.string().regex(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/),    // datetime_local
   a: z.enum(["notify", "alarm", "open_app", "call"]).catch("notify"), // action
   p: z.string().nullable().catch(null),                        // app_name
+  u: z.string().nullable().catch(null),                        // action_url
   r: z.coerce.number().min(0).max(1440).catch(0),             // remind_before_minutes
   q: z.string().nullable().catch(null),                        // clarifying_question
 });
