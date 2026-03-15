@@ -35,3 +35,6 @@ server.err
 # OS
 .DS_Store
 Thumbs.db
+
+# Temp
+tsc_errors.txt
