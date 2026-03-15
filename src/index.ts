@@ -27,6 +27,7 @@ app.use("/*", cors({ origin: CORS_ORIGIN }));
 
 // ===== Routes =====
 
+app.get("/", (c) => c.text("Xin chào, đây là VieTask 🇻🇳"));
 app.get("/health", (c) => c.json({ ok: true }));
 
 /**
