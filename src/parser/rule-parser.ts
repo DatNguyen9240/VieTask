@@ -139,6 +139,7 @@ export function tryRuleBased(text: string, nowHint: string): { tasks: ParsedTask
           confidence: 0.5,
           need_clarification: true,
           clarifying_question: `Bạn ${keyword} lúc mấy giờ?`,
+          suggestions: ['5 giờ chiều', '5 rưỡi chiều', '6 giờ chiều', '6 rưỡi chiều'],
           action,
           app_name,
         });
@@ -224,6 +225,7 @@ export function tryRuleBased(text: string, nowHint: string): { tasks: ParsedTask
           confidence: 0.5,
           need_clarification: true,
           clarifying_question: "Bạn muốn nhắc lúc mấy giờ?",
+          suggestions: ['7 giờ sáng', '12 giờ trưa', '3 giờ chiều', '8 giờ tối'],
           action,
           app_name,
         }],
@@ -248,13 +250,23 @@ export function tryRuleBased(text: string, nowHint: string): { tasks: ParsedTask
     let need_clarification = false, clarifying_question: string | null = null;
 
     // --- Resolve AM/PM from period word or heuristic ---
-    if (period) {
-      if (period === "sáng") { if (hour === 12) hour = 0; }
-      else if (period === "trưa") { hour = 12; }
+    // Also check if "sáng mai"/"chiều mai"/"tối mai" provides a period hint
+    let effectivePeriod = period;
+    if (!effectivePeriod && forceNextDay) {
+      if (/\bsáng\s+mai\b/i.test(text)) effectivePeriod = 'sáng';
+      else if (/\bchiều\s+mai\b/i.test(text)) effectivePeriod = 'chiều';
+      else if (/\btối\s+mai\b/i.test(text)) effectivePeriod = 'tối';
+    }
+
+    if (effectivePeriod) {
+      if (effectivePeriod === "sáng") { if (hour === 12) hour = 0; }
+      else if (effectivePeriod === "trưa") { hour = 12; }
       else { if (hour < 12) hour += 12; }
     } else if (hour < 13) {
       // No period word → smart AM/PM resolution
-      const amPast = hour < nowH || (hour === nowH && minute <= nowMin);
+      // Skip past-time heuristic when date is already forced to a future day
+      const dateForced = forceNextDay || !!dowForcedDate;
+      const amPast = !dateForced && (hour < nowH || (hour === nowH && minute <= nowMin));
       const pmHour = hour + 12;
       const pmFuture = pmHour < 24 && (pmHour > nowH || (pmHour === nowH && minute > nowMin));
 
@@ -337,7 +349,12 @@ export function tryRuleBased(text: string, nowHint: string): { tasks: ParsedTask
         }
       } else {
         const { action, app_name } = detectAction(title);
-        tasks.push({ title, datetime_local: `${dateStr} ${pad(hour)}:${pad(minute)}`, remind_before_minutes, repeat: "none", confidence: need_clarification ? 0.5 : 0.95, need_clarification, clarifying_question, action, app_name });
+        const suggestions = need_clarification
+          ? (clarifying_question?.match(/(\d{1,2})\s*giờ\s*sáng\s*hay/i)
+            ? [`${hour} giờ sáng`, `${hour} giờ chiều`]
+            : ['7 giờ sáng', '12 giờ trưa', '3 giờ chiều', '8 giờ tối'])
+          : null;
+        tasks.push({ title, datetime_local: `${dateStr} ${pad(hour)}:${pad(minute)}`, remind_before_minutes, repeat: "none", confidence: need_clarification ? 0.5 : 0.95, need_clarification, clarifying_question, suggestions, action, app_name });
       }
     }
   }

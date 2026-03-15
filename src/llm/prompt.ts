@@ -19,17 +19,18 @@ Now: ${nowHint} (${tz})${contactsSection}
 Rules:
 - Each timed event = 1 task. "rồi/và X" at same time = new task. "trước đó N phút X" = new task at anchor-N min.
 - "nhắc trước N phút" = r=N on same task. "N phút sau khi ăn X khoảng T" = d=T+N min.
-- "tầm/khoảng T" = time T. "tan làm/học" no time: d=00:00, q="Bạn tan lúc mấy giờ?".
-- Hours 6-11=AM, 12=noon, 13-23=PM, 0-5: q=ask AM or PM. sáng/trưa/chiều/tối override. Past time = tomorrow.
-- buổi sáng=~09:00, buổi trưa=12:00, buổi chiều=~14:00, buổi tối=~20:00 with q asking exact time.
+- "tầm/khoảng T" = time T. "tan làm/học" no time: d=00:00, q="Bạn tan lúc mấy giờ?", s=["5 giờ chiều","6 giờ chiều"].
+- Hours 6-11=AM, 12=noon, 13-23=PM, 0-5: q=ask AM or PM, s=["X giờ sáng","X giờ chiều"]. sáng/trưa/chiều/tối override. Past time = tomorrow.
+- buổi sáng=~09:00, buổi trưa=12:00, buổi chiều=~14:00, buổi tối=~20:00 with q asking exact time, s with 2-4 likely times.
 - Remove tôi/mình from title. báo thức=alarm. mở/bật APP=open_app,p=APP. gọi=call. else=notify.
 - t = EXACT Vietnamese task phrase from input (e.g. "gọi khách hàng", "uống thuốc"). NEVER use English words like "alarm","call","notify" as t.
 - u = deep web URL for open_app action. Use search/content URLs when user specifies content (e.g. YouTube search, specific page). For zalo with known contact, use zalo://conversation?phone=PHONE. null for non open_app actions.
-JSON schema per task: {"t":"title","d":"YYYY-MM-DD HH:MM","a":"notify","p":null,"u":null,"r":0,"q":null}
-Examples: "nhắc gọi cho vợ 5 chiều"→{"t":"gọi cho vợ","d":"2026-03-06 17:00","a":"call","p":null,"u":null,"r":0,"q":null}
-          "báo thức 6 sáng"→{"t":"báo thức","d":"2026-03-06 06:00","a":"alarm","p":null,"u":null,"r":0,"q":null}
-          "7 giờ tối mở youtube nghe nhạc sơn tùng"→{"t":"mở youtube nghe nhạc sơn tùng","d":"2026-03-06 19:00","a":"open_app","p":"youtube","u":"https://www.youtube.com/results?search_query=nh%E1%BA%A1c+s%C6%A1n+t%C3%B9ng","r":0,"q":null}
-          "8 giờ mở zalo nhắn con trai"→{"t":"mở zalo nhắn con trai","d":"2026-03-06 20:00","a":"open_app","p":"zalo","u":"zalo://conversation?phone=0901234567","r":0,"q":null}
+- s = when q is set, provide 2-4 short Vietnamese reply options the user can pick. null when q is null.
+JSON schema per task: {"t":"title","d":"YYYY-MM-DD HH:MM","a":"notify","p":null,"u":null,"r":0,"q":null,"s":null}
+Examples: "nhắc gọi cho vợ 5 chiều"→{"t":"gọi cho vợ","d":"2026-03-06 17:00","a":"call","p":null,"u":null,"r":0,"q":null,"s":null}
+          "báo thức 6 sáng"→{"t":"báo thức","d":"2026-03-06 06:00","a":"alarm","p":null,"u":null,"r":0,"q":null,"s":null}
+          "3 giờ gọi khách hàng"→{"t":"gọi khách hàng","d":"2026-03-06 03:00","a":"call","p":null,"u":null,"r":0,"q":"Bạn muốn 3 giờ sáng hay 3 giờ chiều?","s":["3 giờ sáng","3 giờ chiều"]}
+          "7 giờ tối mở youtube nghe nhạc sơn tùng"→{"t":"mở youtube nghe nhạc sơn tùng","d":"2026-03-06 19:00","a":"open_app","p":"youtube","u":"https://www.youtube.com/results?search_query=nh%E1%BA%A1c+s%C6%A1n+t%C3%B9ng","r":0,"q":null,"s":null}
 Vietnamese text: ${JSON.stringify(text)}
 {"tasks":[`;
 }

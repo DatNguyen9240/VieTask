@@ -9,6 +9,7 @@ export interface ParsedTask {
   confidence: number;
   need_clarification: boolean;
   clarifying_question: string | null;
+  suggestions?: string[] | null;
   action: "notify" | "alarm" | "open_app" | "call";
   action_label?: string;
   action_icon?: string;
@@ -65,6 +66,7 @@ export const CompactTaskSchema = z.object({
   u: z.string().nullable().catch(null),                        // action_url
   r: z.coerce.number().min(0).max(1440).catch(0),             // remind_before_minutes
   q: z.string().nullable().catch(null),                        // clarifying_question
+  s: z.array(z.string()).nullable().catch(null),               // suggestions
 });
 
 export const CompactSchema = z.object({
