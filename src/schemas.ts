@@ -20,27 +20,36 @@ export interface ParsedTask {
 
 // ===== Action display info =====
 const ACTION_INFO: Record<string, { label: string; icon: string }> = {
-  notify:   { label: "Nhắc nhở", icon: "🔔" },
-  alarm:    { label: "Báo thức", icon: "⏰" },
-  open_app: { label: "Mở app",  icon: "📱" },
-  call:     { label: "Gọi điện", icon: "📞" },
+  notify: { label: "Nhắc nhở", icon: "🔔" },
+  alarm: { label: "Báo thức", icon: "⏰" },
+  open_app: { label: "Mở app", icon: "📱" },
+  call: { label: "Gọi điện", icon: "📞" },
 };
+import { lookupApp } from "./parser/rule-parser.js";
 
 /**
  * Enrich tasks with action_label, action_icon.
- * action_url is only kept if the LLM provided a content-specific URL
- * (e.g. YouTube search). For generic open_app, client handles deep linking
- * based on app_name + platform.
+ * Also fills in missing android_package / action_url for open_app tasks
+ * using the known-apps lookup (safety net when LLM doesn't return pkg).
  */
 export function enrichTasks(result: { tasks: ParsedTask[] }): { tasks: ParsedTask[] } {
   return {
-    tasks: result.tasks.map(t => ({
-      ...t,
-      action_label: ACTION_INFO[t.action]?.label ?? t.action,
-      action_icon: ACTION_INFO[t.action]?.icon ?? "🔔",
-      // Keep LLM-provided URL (content-specific), otherwise null → client handles
-      action_url: t.action_url ?? null,
-    })),
+    tasks: result.tasks.map(t => {
+      // Fill missing pkg/url for open_app from known-apps list
+      if (t.action === 'open_app' && t.app_name && (!t.android_package || !t.action_url)) {
+        const known = lookupApp(t.app_name);
+        if (known) {
+          if (!t.android_package) t.android_package = known.pkg;
+          if (!t.action_url) t.action_url = known.url;
+        }
+      }
+      return {
+        ...t,
+        action_label: ACTION_INFO[t.action]?.label ?? t.action,
+        action_icon: ACTION_INFO[t.action]?.icon ?? "🔔",
+        action_url: t.action_url ?? null,
+      };
+    }),
   };
 }
 

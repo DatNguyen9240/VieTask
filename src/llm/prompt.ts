@@ -26,8 +26,8 @@ Rules:
 - buổi sáng=~09:00, buổi trưa=12:00, buổi chiều=~14:00, buổi tối=~20:00 with q asking exact time, s with 2-4 likely times.
 - Remove tôi/mình from title. báo thức=alarm. mở/bật APP=open_app,p=APP. gọi=call. else=notify.
 - t = EXACT Vietnamese task phrase from input (e.g. "gọi khách hàng", "uống thuốc"). NEVER use English words like "alarm","call","notify" as t.
-- u = for open_app: use native deep link scheme (e.g. fb://, zalo://, youtube://, instagram://, spotify://, tiktok://, telegram://, whatsapp://). When user specifies content, use content URL (e.g. youtube://results?search_query=..., https://www.youtube.com/results?search_query=...). For zalo with known contact, use zalo://conversation?phone=PHONE. null for non open_app actions.
-- pkg = Android package name for open_app actions (e.g. com.zing.zalo, com.facebook.katana, com.google.android.youtube). null for non open_app actions.
+- u = for open_app: use native deep link scheme (e.g. fb://, zalo://, youtube://, instagram://, spotify://, tiktok://, telegram://, whatsapp://, ms-word://, canva://). When user specifies content, use content URL (e.g. youtube://results?search_query=..., https://www.youtube.com/results?search_query=...). For zalo with known contact, use zalo://conversation?phone=PHONE. null for non open_app actions.
+- pkg = REQUIRED for open_app: the REAL Android package name (e.g. com.zing.zalo, com.facebook.katana, com.google.android.youtube, com.microsoft.office.word, com.discord, com.canva.editor). You MUST provide the correct package for ANY app the user mentions — use your knowledge of real Android package names. null for non open_app actions.
 - s = when q is set, provide 2-4 short Vietnamese reply options the user can pick. null when q is null.
 JSON schema per task: {"t":"title","d":"YYYY-MM-DD HH:MM","a":"notify","p":null,"u":null,"pkg":null,"r":0,"q":null,"s":null}
 Examples: "nhắc gọi cho vợ 5 chiều"→{"t":"gọi cho vợ","d":"2026-03-06 17:00","a":"call","p":null,"u":null,"r":0,"q":null,"s":null}
@@ -37,6 +37,8 @@ Examples: "nhắc gọi cho vợ 5 chiều"→{"t":"gọi cho vợ","d":"2026-03
           "7 giờ tối mở facebook"→{"t":"mở facebook","d":"2026-03-06 19:00","a":"open_app","p":"facebook","u":"fb://","pkg":"com.facebook.katana","r":0,"q":null,"s":null}
           "8 giờ mở zalo"→{"t":"mở zalo","d":"2026-03-06 20:00","a":"open_app","p":"zalo","u":"zalo://","pkg":"com.zing.zalo","r":0,"q":null,"s":null}
           "7 giờ tối mở youtube nghe nhạc sơn tùng"→{"t":"mở youtube nghe nhạc sơn tùng","d":"2026-03-06 19:00","a":"open_app","p":"youtube","u":"https://www.youtube.com/results?search_query=nh%E1%BA%A1c+s%C6%A1n+t%C3%B9ng","pkg":"com.google.android.youtube","r":0,"q":null,"s":null}
+          "9 giờ mở word"→{"t":"mở word","d":"2026-03-06 09:00","a":"open_app","p":"word","u":"ms-word://","pkg":"com.microsoft.office.word","r":0,"q":null,"s":null}
+          "10 giờ mở canva"→{"t":"mở canva","d":"2026-03-06 10:00","a":"open_app","p":"canva","u":"canva://","pkg":"com.canva.editor","r":0,"q":null,"s":null}
 Vietnamese text: ${JSON.stringify(text)}
 {"tasks":[`;
 }

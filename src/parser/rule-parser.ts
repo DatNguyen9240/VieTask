@@ -29,16 +29,80 @@ const DOW_MAP: Record<string, number> = {
   hai: 1, ba: 2, 'tư': 3, năm: 4, sáu: 5, bảy: 6, 'chủ nhật': 0, cn: 0,
 };
 
+/** Known apps: normalized name → { pkg: Android package, url: deep link scheme } */
+const KNOWN_APPS: Record<string, { pkg: string; url: string }> = {
+  zalo: { pkg: 'com.zing.zalo', url: 'zalo://' },
+  facebook: { pkg: 'com.facebook.katana', url: 'fb://' },
+  fb: { pkg: 'com.facebook.katana', url: 'fb://' },
+  youtube: { pkg: 'com.google.android.youtube', url: 'youtube://' },
+  tiktok: { pkg: 'com.zhiliaoapp.musically', url: 'snssdk1233://' },
+  instagram: { pkg: 'com.instagram.android', url: 'instagram://' },
+  spotify: { pkg: 'com.spotify.music', url: 'spotify://' },
+  telegram: { pkg: 'org.telegram.messenger', url: 'tg://' },
+  whatsapp: { pkg: 'com.whatsapp', url: 'whatsapp://' },
+  messenger: { pkg: 'com.facebook.orca', url: 'fb-messenger://' },
+  netflix: { pkg: 'com.netflix.mediaclient', url: 'nflx://' },
+  grab: { pkg: 'com.grabtaxi.passenger', url: 'grab://' },
+  shopee: { pkg: 'com.shopee.vn', url: 'shopee://' },
+  lazada: { pkg: 'com.lazada.android', url: 'lazada://' },
+  twitter: { pkg: 'com.twitter.android', url: 'twitter://' },
+  x: { pkg: 'com.twitter.android', url: 'twitter://' },
+  gmail: { pkg: 'com.google.android.gm', url: 'googlegmail://' },
+  chrome: { pkg: 'com.android.chrome', url: 'googlechrome://' },
+  maps: { pkg: 'com.google.android.apps.maps', url: 'comgooglemaps://' },
+  'google maps': { pkg: 'com.google.android.apps.maps', url: 'comgooglemaps://' },
+  viber: { pkg: 'com.viber.voip', url: 'viber://' },
+  skype: { pkg: 'com.skype.raider', url: 'skype://' },
+  zoom: { pkg: 'us.zoom.videomeetings', url: 'zoomus://' },
+  teams: { pkg: 'com.microsoft.teams', url: 'msteams://' },
+  tiki: { pkg: 'vn.tiki.app.tikiandroid', url: 'tiki://' },
+  sendo: { pkg: 'vn.sendo', url: 'sendo://' },
+  momo: { pkg: 'com.mservice.momotransfer', url: 'momo://' },
+  'be': { pkg: 'xyz.be.customer', url: 'be://' },
+  word: { pkg: 'com.microsoft.office.word', url: 'ms-word://' },
+  excel: { pkg: 'com.microsoft.office.excel', url: 'ms-excel://' },
+  powerpoint: { pkg: 'com.microsoft.office.powerpoint', url: 'ms-powerpoint://' },
+  outlook: { pkg: 'com.microsoft.office.outlook', url: 'ms-outlook://' },
+  discord: { pkg: 'com.discord', url: 'discord://' },
+  canva: { pkg: 'com.canva.editor', url: 'canva://' },
+  notion: { pkg: 'notion.id', url: 'notion://' },
+  slack: { pkg: 'com.Slack', url: 'slack://' },
+  line: { pkg: 'jp.naver.line.android', url: 'line://' },
+  snapchat: { pkg: 'com.snapchat.android', url: 'snapchat://' },
+  capcut: { pkg: 'com.lemon.lvoverseas', url: 'capcut://' },
+};
+
+/**
+ * Look up a known app by name. Returns the entry or undefined.
+ */
+export function lookupApp(appName: string | null): { pkg: string; url: string } | undefined {
+  if (!appName) return undefined;
+  return KNOWN_APPS[appName.toLowerCase().trim()];
+}
+
 /**
  * Detect the action type from a task title.
- * Returns the action enum and app_name (for open_app action).
+ * Returns the action enum, app_name, and for known open_app actions:
+ * android_package and action_url.
  */
-export function detectAction(title: string): { action: ParsedTask["action"]; app_name: string | null } {
+export function detectAction(title: string): {
+  action: ParsedTask["action"];
+  app_name: string | null;
+  android_package?: string | null;
+  action_url?: string | null;
+  _unknownApp?: boolean;
+} {
   if (ALARM_RX.test(title)) return { action: "alarm", app_name: null };
   if (CALL_RX.test(title)) return { action: "call", app_name: null };
   if (OPEN_TRIGGER_RX.test(title)) {
     const m = title.match(/(?:mở|bật)\s+(?:app\s+|web\s+|trang\s+web\s+|trang\s+|[uư]ng dụng\s+)?(.+)/i);
-    return { action: "open_app", app_name: m ? m[1]!.replace(/[,;]\s*$/, "").trim() : null };
+    const rawName = m ? m[1]!.replace(/[,;]\s*$/, "").trim() : null;
+    const known = lookupApp(rawName);
+    if (known) {
+      return { action: "open_app", app_name: rawName, android_package: known.pkg, action_url: known.url };
+    }
+    // Unknown app → flag it so tryRuleBased can fall through to LLM
+    return { action: "open_app", app_name: rawName, _unknownApp: true };
   }
   return { action: "notify", app_name: null };
 }
@@ -129,7 +193,8 @@ export function tryRuleBased(text: string, nowHint: string): { tasks: ParsedTask
     if (afterTanLam) {
       const title = stripPronouns(afterTanLam);
       if (title) {
-        const { action, app_name } = detectAction(title);
+        const detected = detectAction(title);
+        if (detected._unknownApp) return null; // unknown app → LLM
         const dateStr = nowHint.match(/^(\d{4}-\d{2}-\d{2})/)?.[1] ?? "2026-01-01";
         tasks.push({
           title,
@@ -140,8 +205,7 @@ export function tryRuleBased(text: string, nowHint: string): { tasks: ParsedTask
           need_clarification: true,
           clarifying_question: `Bạn ${keyword} lúc mấy giờ?`,
           suggestions: ['5 giờ chiều', '5 rưỡi chiều', '6 giờ chiều', '6 rưỡi chiều'],
-          action,
-          app_name,
+          ...detected,
         });
       }
     }
@@ -215,7 +279,8 @@ export function tryRuleBased(text: string, nowHint: string): { tasks: ParsedTask
         .replace(/\b(?:tôi|mình|anh|em|chị|mày)\b/gi, '')
         .replace(/\b(?:khoảng|tầm|lúc|vào)\b/gi, '')
         .replace(/\s+/g, ' ').trim();
-      const { action, app_name } = detectAction(taskTitle || workText.trim());
+      const detected = detectAction(taskTitle || workText.trim());
+      if (detected._unknownApp) return null;
       return {
         tasks: [{
           title: taskTitle || workText.trim(),
@@ -226,8 +291,7 @@ export function tryRuleBased(text: string, nowHint: string): { tasks: ParsedTask
           need_clarification: true,
           clarifying_question: "Bạn muốn nhắc lúc mấy giờ?",
           suggestions: ['7 giờ sáng', '12 giờ trưa', '3 giờ chiều', '8 giờ tối'],
-          action,
-          app_name,
+          ...detected,
         }],
       };
     }
@@ -334,9 +398,11 @@ export function tryRuleBased(text: string, nowHint: string): { tasks: ParsedTask
       const mainParts = mainTitle.split(/\s+(?:và|rồi|sau đó|xong|rồi thì|tiếp theo)\s+/i).map(p => p.trim()).filter(Boolean);
       for (const part of mainParts) {
         const mainAction = detectAction(part);
+        if (mainAction._unknownApp) return null;
         tasks.push({ title: part, datetime_local: `${dateStr} ${pad(hour)}:${pad(minute)}`, remind_before_minutes, repeat: "none", confidence: 0.95, need_clarification: false, clarifying_question: null, ...mainAction });
       }
       const subAction = detectAction(subTitle);
+      if (subAction._unknownApp) return null;
       tasks.push({ title: subTitle, datetime_local: `${subDateStr} ${pad(subHour)}:${pad(subMin)}`, remind_before_minutes: 0, repeat: "none", confidence: 0.95, need_clarification: false, clarifying_question: null, ...subAction });
     } else {
       // Split on conjunctions if different actions detected
@@ -344,17 +410,19 @@ export function tryRuleBased(text: string, nowHint: string): { tasks: ParsedTask
       const shouldSplit = parts.length > 1 && parts.some(p => detectAction(p).action !== "notify");
       if (shouldSplit) {
         for (const part of parts) {
-          const { action, app_name } = detectAction(part);
-          tasks.push({ title: part, datetime_local: `${dateStr} ${pad(hour)}:${pad(minute)}`, remind_before_minutes: 0, repeat: "none", confidence: 0.95, need_clarification: false, clarifying_question: null, action, app_name });
+          const detected = detectAction(part);
+          if (detected._unknownApp) return null;
+          tasks.push({ title: part, datetime_local: `${dateStr} ${pad(hour)}:${pad(minute)}`, remind_before_minutes: 0, repeat: "none", confidence: 0.95, need_clarification: false, clarifying_question: null, ...detected });
         }
       } else {
-        const { action, app_name } = detectAction(title);
+        const detected = detectAction(title);
+        if (detected._unknownApp) return null;
         const suggestions = need_clarification
           ? (clarifying_question?.match(/(\d{1,2})\s*giờ\s*sáng\s*hay/i)
             ? [`${hour} giờ sáng`, `${hour} giờ chiều`]
             : ['7 giờ sáng', '12 giờ trưa', '3 giờ chiều', '8 giờ tối'])
           : null;
-        tasks.push({ title, datetime_local: `${dateStr} ${pad(hour)}:${pad(minute)}`, remind_before_minutes, repeat: "none", confidence: need_clarification ? 0.5 : 0.95, need_clarification, clarifying_question, suggestions, action, app_name });
+        tasks.push({ title, datetime_local: `${dateStr} ${pad(hour)}:${pad(minute)}`, remind_before_minutes, repeat: "none", confidence: need_clarification ? 0.5 : 0.95, need_clarification, clarifying_question, suggestions, ...detected });
       }
     }
   }
@@ -380,8 +448,11 @@ export function tryRuleBased(text: string, nowHint: string): { tasks: ParsedTask
         if (borrowed.length > 2) {
           prev.title = parts.join(" ").replace(/\s+/g, " ").trim();
           t.title = borrowed;
-          const { action, app_name } = detectAction(t.title);
-          t.action = action; t.app_name = app_name;
+          const detected = detectAction(t.title);
+          if (detected._unknownApp) return null;
+          t.action = detected.action; t.app_name = detected.app_name;
+          if (detected.android_package) (t as any).android_package = detected.android_package;
+          if (detected.action_url) (t as any).action_url = detected.action_url;
         }
       }
     }
