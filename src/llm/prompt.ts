@@ -21,6 +21,7 @@ Rules:
 - "nhắc trước N phút" = r=N on same task. "N phút sau khi ăn X khoảng T" = d=T+N min.
 - "tầm/khoảng T" = time T. "tan làm/học" no time: d=00:00, q="Bạn tan lúc mấy giờ?", s=["5 giờ chiều","6 giờ chiều"].
 - IMPORTANT: If the user does NOT specify a time (e.g. "nhắc tôi họp", "gọi cho mẹ", "uống thuốc"), set d=today 00:00, q="Bạn muốn nhắc lúc mấy giờ?", s=["8 giờ sáng","12 giờ trưa","3 giờ chiều","8 giờ tối"]. NEVER guess a time when none is given.
+- CLARIFICATION REPLIES: If input has comma-separated parts (e.g. "nhắc tôi họp, 3 giờ chiều"), the parts after the comma are the user's ANSWERS to clarification questions. Use them directly to fill in missing info — DO NOT ask again. Example: "nhắc tôi họp, 3 giờ chiều"→d=15:00, q=null, s=null.
 - Hours 6-11=AM, 12=noon, 13-23=PM, 0-5: q=ask AM or PM, s=["X giờ sáng","X giờ chiều"]. sáng/trưa/chiều/tối override. Past time = tomorrow.
 - buổi sáng=~09:00, buổi trưa=12:00, buổi chiều=~14:00, buổi tối=~20:00 with q asking exact time, s with 2-4 likely times.
 - Remove tôi/mình from title. báo thức=alarm. mở/bật APP=open_app,p=APP. gọi=call. else=notify.
