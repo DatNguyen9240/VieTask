@@ -15,6 +15,7 @@ export interface ParsedTask {
   action_icon?: string;
   action_url?: string | null;
   app_name: string | null;
+  android_package?: string | null;
 }
 
 // ===== Action display info =====
@@ -67,6 +68,7 @@ export const CompactTaskSchema = z.object({
   a: z.enum(["notify", "alarm", "open_app", "call"]).catch("notify"), // action
   p: z.string().nullable().catch(null),                        // app_name
   u: z.string().nullable().catch(null),                        // action_url
+  pkg: z.string().nullable().catch(null),                      // android_package
   r: z.coerce.number().min(0).max(1440).catch(0),             // remind_before_minutes
   q: z.string().nullable().catch(null),                        // clarifying_question
   s: z.array(z.string()).nullable().catch(null),               // suggestions

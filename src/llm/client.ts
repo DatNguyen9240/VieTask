@@ -72,6 +72,7 @@ export function parseLLMOutput(raw: string): { tasks: ParsedTask[] } | null {
         action: ct.a,
         app_name: ct.p,
         action_url: ct.u,
+        android_package: ct.pkg,
       })),
     };
   }
@@ -97,6 +98,7 @@ export function parseLLMOutput(raw: string): { tasks: ParsedTask[] } | null {
         action: ct.a,
         app_name: ct.p,
         action_url: ct.u,
+        android_package: ct.pkg,
       }],
     };
   }
