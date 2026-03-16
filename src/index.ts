@@ -74,9 +74,8 @@ function resolveShortcuts(result: { tasks: ParsedTask[] }, shortcuts: Record<str
         // Value is an app/website name → resolve as open_app
         task.action = 'open_app';
         task.app_name = valLower;
-        task.action_url = valLower.startsWith('http')
-          ? value.trim()
-          : `https://www.${valLower.replace(/\s+/g, '')}.com`;
+        // Only set action_url if shortcut value is a full URL; otherwise client handles deep linking
+        task.action_url = valLower.startsWith('http') ? value.trim() : null;
       }
 
       break; // first match only

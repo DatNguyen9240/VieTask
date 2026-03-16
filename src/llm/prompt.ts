@@ -25,13 +25,15 @@ Rules:
 - buổi sáng=~09:00, buổi trưa=12:00, buổi chiều=~14:00, buổi tối=~20:00 with q asking exact time, s with 2-4 likely times.
 - Remove tôi/mình from title. báo thức=alarm. mở/bật APP=open_app,p=APP. gọi=call. else=notify.
 - t = EXACT Vietnamese task phrase from input (e.g. "gọi khách hàng", "uống thuốc"). NEVER use English words like "alarm","call","notify" as t.
-- u = deep web URL for open_app action. Use search/content URLs when user specifies content (e.g. YouTube search, specific page). For zalo with known contact, use zalo://conversation?phone=PHONE. null for non open_app actions.
+- u = for open_app: use native deep link scheme (e.g. fb://, zalo://, youtube://, instagram://, spotify://, tiktok://, telegram://, whatsapp://). When user specifies content, use content URL (e.g. youtube://results?search_query=..., https://www.youtube.com/results?search_query=...). For zalo with known contact, use zalo://conversation?phone=PHONE. null for non open_app actions.
 - s = when q is set, provide 2-4 short Vietnamese reply options the user can pick. null when q is null.
 JSON schema per task: {"t":"title","d":"YYYY-MM-DD HH:MM","a":"notify","p":null,"u":null,"r":0,"q":null,"s":null}
 Examples: "nhắc gọi cho vợ 5 chiều"→{"t":"gọi cho vợ","d":"2026-03-06 17:00","a":"call","p":null,"u":null,"r":0,"q":null,"s":null}
           "báo thức 6 sáng"→{"t":"báo thức","d":"2026-03-06 06:00","a":"alarm","p":null,"u":null,"r":0,"q":null,"s":null}
           "nhắc tôi họp"→{"t":"họp","d":"2026-03-06 00:00","a":"notify","p":null,"u":null,"r":0,"q":"Bạn muốn nhắc lúc mấy giờ?","s":["8 giờ sáng","12 giờ trưa","3 giờ chiều","8 giờ tối"]}
           "3 giờ gọi khách hàng"→{"t":"gọi khách hàng","d":"2026-03-06 03:00","a":"call","p":null,"u":null,"r":0,"q":"Bạn muốn 3 giờ sáng hay 3 giờ chiều?","s":["3 giờ sáng","3 giờ chiều"]}
+          "7 giờ tối mở facebook"→{"t":"mở facebook","d":"2026-03-06 19:00","a":"open_app","p":"facebook","u":"fb://","r":0,"q":null,"s":null}
+          "8 giờ mở zalo"→{"t":"mở zalo","d":"2026-03-06 20:00","a":"open_app","p":"zalo","u":"zalo://","r":0,"q":null,"s":null}
           "7 giờ tối mở youtube nghe nhạc sơn tùng"→{"t":"mở youtube nghe nhạc sơn tùng","d":"2026-03-06 19:00","a":"open_app","p":"youtube","u":"https://www.youtube.com/results?search_query=nh%E1%BA%A1c+s%C6%A1n+t%C3%B9ng","r":0,"q":null,"s":null}
 Vietnamese text: ${JSON.stringify(text)}
 {"tasks":[`;

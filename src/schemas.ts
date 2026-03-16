@@ -25,17 +25,20 @@ const ACTION_INFO: Record<string, { label: string; icon: string }> = {
   call:     { label: "Gọi điện", icon: "📞" },
 };
 
-/** Enrich tasks with action_label, action_icon, and action_url fallback */
+/**
+ * Enrich tasks with action_label, action_icon.
+ * action_url is only kept if the LLM provided a content-specific URL
+ * (e.g. YouTube search). For generic open_app, client handles deep linking
+ * based on app_name + platform.
+ */
 export function enrichTasks(result: { tasks: ParsedTask[] }): { tasks: ParsedTask[] } {
   return {
     tasks: result.tasks.map(t => ({
       ...t,
       action_label: ACTION_INFO[t.action]?.label ?? t.action,
       action_icon: ACTION_INFO[t.action]?.icon ?? "🔔",
-      // If LLM didn't return a URL, generate fallback for open_app
-      action_url: t.action_url ?? (t.action === 'open_app' && t.app_name
-        ? `https://www.${t.app_name.toLowerCase().replace(/\s+/g, '')}.com`
-        : null),
+      // Keep LLM-provided URL (content-specific), otherwise null → client handles
+      action_url: t.action_url ?? null,
     })),
   };
 }
