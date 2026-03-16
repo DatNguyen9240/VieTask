@@ -20,6 +20,7 @@ Rules:
 - Each timed event = 1 task. "rồi/và X" at same time = new task. "trước đó N phút X" = new task at anchor-N min.
 - "nhắc trước N phút" = r=N on same task. "N phút sau khi ăn X khoảng T" = d=T+N min.
 - "tầm/khoảng T" = time T. "tan làm/học" no time: d=00:00, q="Bạn tan lúc mấy giờ?", s=["5 giờ chiều","6 giờ chiều"].
+- IMPORTANT: If the user does NOT specify a time (e.g. "nhắc tôi họp", "gọi cho mẹ", "uống thuốc"), set d=today 00:00, q="Bạn muốn nhắc lúc mấy giờ?", s=["8 giờ sáng","12 giờ trưa","3 giờ chiều","8 giờ tối"]. NEVER guess a time when none is given.
 - Hours 6-11=AM, 12=noon, 13-23=PM, 0-5: q=ask AM or PM, s=["X giờ sáng","X giờ chiều"]. sáng/trưa/chiều/tối override. Past time = tomorrow.
 - buổi sáng=~09:00, buổi trưa=12:00, buổi chiều=~14:00, buổi tối=~20:00 with q asking exact time, s with 2-4 likely times.
 - Remove tôi/mình from title. báo thức=alarm. mở/bật APP=open_app,p=APP. gọi=call. else=notify.
@@ -29,6 +30,7 @@ Rules:
 JSON schema per task: {"t":"title","d":"YYYY-MM-DD HH:MM","a":"notify","p":null,"u":null,"r":0,"q":null,"s":null}
 Examples: "nhắc gọi cho vợ 5 chiều"→{"t":"gọi cho vợ","d":"2026-03-06 17:00","a":"call","p":null,"u":null,"r":0,"q":null,"s":null}
           "báo thức 6 sáng"→{"t":"báo thức","d":"2026-03-06 06:00","a":"alarm","p":null,"u":null,"r":0,"q":null,"s":null}
+          "nhắc tôi họp"→{"t":"họp","d":"2026-03-06 00:00","a":"notify","p":null,"u":null,"r":0,"q":"Bạn muốn nhắc lúc mấy giờ?","s":["8 giờ sáng","12 giờ trưa","3 giờ chiều","8 giờ tối"]}
           "3 giờ gọi khách hàng"→{"t":"gọi khách hàng","d":"2026-03-06 03:00","a":"call","p":null,"u":null,"r":0,"q":"Bạn muốn 3 giờ sáng hay 3 giờ chiều?","s":["3 giờ sáng","3 giờ chiều"]}
           "7 giờ tối mở youtube nghe nhạc sơn tùng"→{"t":"mở youtube nghe nhạc sơn tùng","d":"2026-03-06 19:00","a":"open_app","p":"youtube","u":"https://www.youtube.com/results?search_query=nh%E1%BA%A1c+s%C6%A1n+t%C3%B9ng","r":0,"q":null,"s":null}
 Vietnamese text: ${JSON.stringify(text)}
