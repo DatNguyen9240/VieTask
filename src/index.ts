@@ -83,6 +83,59 @@ function resolveShortcuts(result: { tasks: ParsedTask[] }, shortcuts: Record<str
   }
 }
 
+/** Get time-of-day period for cache key */
+function getTimePeriod(hour: number): string {
+  if (hour >= 5 && hour < 11) return 'sang';
+  if (hour >= 11 && hour < 14) return 'trua';
+  if (hour >= 14 && hour < 18) return 'chieu';
+  return 'toi';
+}
+
+/** Fallback suggestions per period */
+const FALLBACK_SUGGESTIONS: Record<string, string[]> = {
+  sang: ['Báo thức 6 giờ sáng', 'Nhắc uống thuốc 7 rưỡi', 'Họp team lúc 9 giờ', 'Gọi khách hàng 10 giờ'],
+  trua: ['Nhắc ăn trưa 12 giờ', 'Họp lúc 2 giờ chiều', 'Gọi đối tác 1 rưỡi', 'Uống thuốc sau ăn'],
+  chieu: ['Họp lúc 3 giờ chiều', 'Tập gym 5 rưỡi', 'Đón con 4 giờ', 'Gọi khách hàng 4 rưỡi'],
+  toi: ['Báo thức sáng mai 6 giờ', 'Nhắc uống thuốc 9 giờ tối', 'Mở youtube nghe nhạc', 'Nhắc gọi cho mẹ'],
+};
+
+app.get("/suggestions", async (c) => {
+  const tz = c.req.query('tz') ?? 'Asia/Ho_Chi_Minh';
+  const nowStr = new Date().toLocaleString('sv-SE', { timeZone: tz }).slice(0, 16).replace('T', ' ');
+  const hour = parseInt(nowStr.split(' ')[1]?.split(':')[0] ?? '12', 10);
+  const period = getTimePeriod(hour);
+  const cacheKey = `suggestions|${period}`;
+
+  // Check cache
+  const cached = cacheGet(cacheKey) as string[] | undefined;
+  if (cached) return c.json({ suggestions: cached });
+
+  // Generate via LLM
+  try {
+    const prompt = `Bạn là trợ lý nhắc việc tiếng Việt. Bây giờ là ${nowStr} (${period === 'sang' ? 'buổi sáng' : period === 'trua' ? 'buổi trưa' : period === 'chieu' ? 'buổi chiều' : 'buổi tối'}).
+Hãy gợi ý 4 câu lệnh nhắc việc ngắn gọn, tự nhiên, phù hợp với thời điểm hiện tại.
+Mỗi gợi ý nên bắt đầu bằng thời gian cụ thể. Đa dạng loại: nhắc nhở, báo thức, gọi điện, mở app.
+Trả lời CHÍNH XÁC theo format JSON array, không thêm gì khác:
+["gợi ý 1","gợi ý 2","gợi ý 3","gợi ý 4"]`;
+
+    const raw = await llmGenerate(prompt, 150, 10_000);
+    const match = raw.match(/\[[\s\S]*?\]/);
+    if (match) {
+      const arr = JSON.parse(match[0]) as string[];
+      if (Array.isArray(arr) && arr.length >= 2) {
+        const suggestions = arr.slice(0, 4).map(s => String(s).trim());
+        cacheSet(cacheKey, suggestions);
+        return c.json({ suggestions });
+      }
+    }
+  } catch (e) {
+    console.warn('[Suggestions] LLM error:', e instanceof Error ? e.message : e);
+  }
+
+  // Fallback
+  return c.json({ suggestions: FALLBACK_SUGGESTIONS[period] ?? FALLBACK_SUGGESTIONS.sang });
+});
+
 app.post("/parse", async (c) => {
   const body = await c.req.json().catch(() => ({}));
   const text = String(body.text ?? "").trim();
