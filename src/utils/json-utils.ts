@@ -59,5 +59,5 @@ export function repairJson(text: string): string {
     .replace(/"(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})"/g, '"$1 $2"')  // ISO T → space
     .replace(/,\s*([}\]])/g, "$1")                                  // trailing commas
     .replace(/(['`])(.*?)\1/g, (_, _q, v) => `"${v}"`)             // single/backtick quotes → double
-    .replace(/\/\/[^\n]*/g, "");                                    // inline comments
+    .replace(/(?<![":])\/\/[^\n]*/g, "");                           // inline comments (but NOT ://)
 }
